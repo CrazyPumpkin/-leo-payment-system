@@ -1,0 +1,27 @@
+# The virtualenv
+/paysys_env
+venv/
+lvenv/
+
+# Python cache
+/src/leopay/__pycache__
+__pycache__/
+
+# SQLite file
+/src/db.sqlite3
+
+# JetBrains 
+.idea/
+
+# Env
+.env
+
+# virtualenv
+
+*.log
+*.key
+*.lock
+test.*
+
+pgdata/
+/static/

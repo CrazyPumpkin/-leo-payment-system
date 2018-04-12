@@ -1,0 +1,106 @@
+version: '3.1'
+
+networks:
+  leopay-test-net:
+      external: true
+
+services:
+  nginx:
+    image: nginx:latest
+    restart: always
+    volumes:
+      - ../:/opt/paysys
+    ports:
+      - "0.0.0.0:8010:80"
+    networks:
+      - leopay-test-net
+      - default
+    links:
+      - django
+    depends_on:
+      - django
+    command: /bin/bash -c '/opt/paysys/leo-payment-docker/run_nginx.sh'
+    container_name: leo-payment-nginx
+
+  django:
+    build:
+      context: ../
+      dockerfile: leo-payment-docker/Dockerfile
+    working_dir: /opt/paysys
+    volumes:
+      - ../:/opt/paysys
+    env_file:
+      - ../.env
+    read_only: false
+    ports:
+      - "0.0.0.0:8011:8011"
+    networks:
+      - leopay-test-net
+      - default
+    external_links:
+      - pitsunda-nginx:pitsunda.com
+    links:
+      - db
+      - rabbit
+      - redis
+    depends_on:
+      - db
+      - rabbit
+      - redis
+    command: /bin/bash -c '/opt/paysys/leo-payment-docker/run_django.sh'
+    container_name: leo-payment-django
+
+  worker:
+    build:
+      context: ../
+      dockerfile: leo-payment-docker/Dockerfile
+    working_dir: /opt/paysys
+    volumes:
+      - ../:/opt/paysys
+    env_file:
+      - ../.env
+    read_only: false
+    ports:
+      - 0.0.0.0:5555:5555
+    networks:
+      - leopay-test-net
+      - default
+    external_links:
+      - pitsunda-nginx:pitsunda.com
+    links:
+      - db
+      - rabbit
+      - redis
+    depends_on:
+      - django
+    command: /bin/bash -c '/opt/paysys/leo-payment-docker/run_celery.sh'
+    container_name: leo-payment-worker
+
+  db:
+    image: postgres:latest
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    env_file:
+      - ../.env
+    ports:
+      - "5433:5432"
+    networks:
+      - default
+    container_name: leo-payment-db
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6380:6380"
+    networks:
+      - default
+    container_name: leo-payment-redis
+
+  rabbit:
+    image: rabbitmq:management
+    ports:
+      - "0.0.0.0:5673:5672"
+      - "0.0.0.0:15673:15672"
+    networks:
+      - default
+    container_name: leo-payment-rabbit

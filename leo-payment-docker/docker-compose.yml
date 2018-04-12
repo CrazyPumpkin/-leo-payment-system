@@ -1,0 +1,76 @@
+version: '3.1'
+
+services:
+  nginx:
+    image: nginx:latest
+    restart: always
+    volumes:
+      - ../:/opt/paysys
+      - ./nginx/ssl:/etc/nginx/ssl
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    links:
+      - django
+    depends_on:
+      - django
+    command: /bin/bash -c '/opt/paysys/leo-payment-docker/run_nginx.sh'
+    container_name: leo-payment-nginx
+
+  django:
+    build:
+      context: ../
+      dockerfile: leo-payment-docker/Dockerfile
+    working_dir: /opt/paysys
+    volumes:
+      - ../:/opt/paysys
+    env_file:
+      - ../.env
+    read_only: false
+    links:
+      - db
+      - rabbit
+      - redis
+    depends_on:
+      - db
+      - rabbit
+      - redis
+    command: /bin/bash -c '/opt/paysys/leo-payment-docker/run_django.sh'
+    container_name: leo-payment-django
+
+  worker:
+    build:
+      context: ../
+      dockerfile: leo-payment-docker/Dockerfile
+    working_dir: /opt/paysys
+    volumes:
+      - ../:/opt/paysys
+    env_file:
+      - ../.env
+    read_only: false
+    ports:
+      - 0.0.0.0:5556:5555
+    links:
+      - db
+      - rabbit
+      - redis
+    depends_on:
+      - django
+    command: /bin/bash -c '/opt/paysys/leo-payment-docker/run_celery.sh'
+    container_name: leo-payment-worker
+
+  db:
+    image: postgres:latest
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    env_file:
+      - ../.env
+    container_name: leo-payment-db
+
+  redis:
+    image: redis:latest
+    container_name: leo-payment-redis
+
+  rabbit:
+    image: rabbitmq:latest
+    container_name: leo-payment-rabbit
